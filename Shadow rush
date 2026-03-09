@@ -1,0 +1,104 @@
+using UnityEngine;
+
+[RequireComponent(typeof(CharacterController))]
+public class PlayerController : MonoBehaviour
+{
+    [Header("Stats")]
+    public float moveSpeed = 6f;
+    public float sprintSpeed = 10f;
+    public float slideSpeed = 15f;
+    public float slideDuration = 1.5f;
+    public float gravity = -9.81f;
+    public float jumpHeight = 1.5f;
+
+    [Header("Components")]
+    private CharacterController controller;
+    private Animator animator;
+    private Vector3 velocity;
+    private bool isSprinting = false;
+    private bool isSliding = false;
+    private bool slideCooldown = false;
+
+    void Start()
+    {
+        controller = GetComponent<CharacterController>();
+        animator = GetComponent<Animator>();
+    }
+
+    void Update()
+    {
+        HandleMovement();
+        HandleSprint();
+        HandleSlide();
+        ApplyGravity();
+    }
+
+    void HandleMovement()
+    {
+        float x = Input.GetAxis("Horizontal");
+        float z = Input.GetAxis("Vertical");
+
+        Vector3 move = transform.right * x + transform.forward * z;
+        float currentSpeed = isSprinting ? sprintSpeed : moveSpeed;
+
+        if (isSliding)
+        {
+            // Slide overrides normal movement
+            controller.Move(transform.forward * slideSpeed * Time.deltaTime);
+        }
+        else
+        {
+            controller.Move(move * currentSpeed * Time.deltaTime);
+        }
+
+        // Update animator movement speed
+        float moveAmount = new Vector3(x, 0, z).magnitude;
+        animator.SetFloat("Speed", moveAmount);
+    }
+
+    void HandleSprint()
+    {
+        if (Input.GetKey(KeyCode.LeftShift) && !isSliding)
+        {
+            isSprinting = true;
+            animator.SetBool("Sprint", true);
+        }
+        else
+        {
+            isSprinting = false;
+            animator.SetBool("Sprint", false);
+        }
+    }
+
+    void HandleSlide()
+    {
+        if (Input.GetKeyDown(KeyCode.C) && !isSliding && !slideCooldown && controller.isGrounded)
+        {
+            isSliding = true;
+            slideCooldown = true;
+            animator.SetTrigger("Slide");
+            Invoke("EndSlide", slideDuration);
+            Invoke("ResetSlideCooldown", slideDuration + 0.5f); // small buffer
+        }
+    }
+
+    void EndSlide()
+    {
+        isSliding = false;
+    }
+
+    void ResetSlideCooldown()
+    {
+        slideCooldown = false;
+    }
+
+    void ApplyGravity()
+    {
+        if (controller.isGrounded && velocity.y < 0)
+        {
+            velocity.y = -2f; // small downward force to stay grounded
+        }
+        velocity.y += gravity * Time.deltaTime;
+        controller.Move(velocity * Time.deltaTime);
+    }
+}
